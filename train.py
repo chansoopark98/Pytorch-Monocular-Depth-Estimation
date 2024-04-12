@@ -1,19 +1,23 @@
 import os
 import time
+import argparse
+
+import torch.nn as nn
 import torch.backends
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
-import models
+from torch.utils.tensorboard import SummaryWriter
+
 from utils.logger import TermLogger, AverageMeter
-from tensorboardX import SummaryWriter
+from utils.utils import save_path_formatter, save_checkpoint, tensor2array, json_out, set_all_random_seed
 from utils import custom_transform
 from loss.depth_loss import berhu_loss, DSSIM
-from utils.utils import save_path_formatter, save_checkpoint, tensor2array, json_out
 from dataset.NyuDataset import DataSequence as dataset
-import argparse
+import models
+
+from typing import NoReturn, Never
 import matplotlib.pyplot as plt
-import torch.nn as nn
 
 parser = argparse.ArgumentParser(description='Depth Training scripts',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -56,19 +60,19 @@ args = parser.parse_args()
 
 def main():
     global best_error, n_iter, device, start_epoch
-    torch.manual_seed(args.seed)
+    set_all_random_seed(args.seed)
     
     disp_alpha, disp_beta = 10, 0.01
     args.data = os.path.join(args.dataset_root, 'nyu_depth')
-    print(args.data)
+    print(f'{args.data}')
     args.img_width = 640
     args.img_height = 480
         
     save_path = save_path_formatter(args, parser)
-    args.save_path = './saved_models/{0}'.format(save_path)
+    args.save_path = f'./saved_models/{save_path}'
     os.makedirs(args.save_path, exist_ok=True)
 
-    print('=> will save everything to {}'.format(args.save_path))
+    print(f'=> will save everything to {args.save_path}')
     
     train_writer = SummaryWriter(args.save_path)   
 
@@ -105,8 +109,8 @@ def main():
                       image_width=args.img_width,
                       image_height=args.img_height)
    
-    print('{} samples found in train scenes'.format(len(train_set)))
-    print('{} samples found in valid scenes'.format(len(val_set)))
+    print(f'{len(train_set)} samples found in train scenes')
+    print(f'{len(val_set)} samples found in valid scenes')
     
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True,
