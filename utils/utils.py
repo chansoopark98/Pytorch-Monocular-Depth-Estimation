@@ -4,13 +4,14 @@ import torch
 import shutil
 from path import Path
 import datetime
-from collections import OrderedDict
 from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 import json
 import os
+import random
+
 
 def json_out(dictionary, outpath, outname):
 	with open(os.path.join(outpath, outname), 'w', encoding="utf-8") as f_out:
@@ -192,3 +193,10 @@ def align(model, data):
     trans_error = numpy.sqrt(numpy.sum(numpy.multiply(alignment_error, alignment_error), 0)).A[0]
 
     return rot, transGT, trans_errorGT, trans, trans_error, s, np.array(data.transpose()), np.array(model_alignedGT.transpose())
+
+
+def set_all_random_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+    torch.manual_seed(seed)
