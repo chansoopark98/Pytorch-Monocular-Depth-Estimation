@@ -376,10 +376,6 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
     train_writer.add_scalar('Valid a1', a1_list, n_iter)
     train_writer.add_scalar('Valid a2', a2_list, n_iter)
     train_writer.add_scalar('Valid a3', a3_list, n_iter)
-
-    train_writer.add_scalar('Valid Total loss', loss.item(), n_iter)
-    train_writer.add_scalar('Valid berhu loss', berhu.item(), n_iter)
-    train_writer.add_scalar('Valid l1 loss', l1.item(), n_iter)
             
             
 
