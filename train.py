@@ -34,11 +34,11 @@ parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('--epoch-size', default=100, type=int, metavar='N',
+parser.add_argument('--epoch-size', default=0, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
-parser.add_argument('-b', '--batch-size', default=8, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size')
-parser.add_argument('--lr', '--learning-rate', default=0.0005, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.0002, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum for sgd, alpha parameter for adam')
@@ -167,8 +167,7 @@ def main():
                            train_writer,
                            logger,
                            epoch)
-        lr = optimizer.param_groups[0]['lr']
-        print(f'Epoch {epoch} ||  LR {lr}')
+        
         logger.train_writer.write(' * Avg Loss : {:.3f}'.format(train_loss))
 
         # validation
