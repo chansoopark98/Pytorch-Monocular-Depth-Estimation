@@ -12,7 +12,6 @@ import json
 import os
 import random
 
-
 def json_out(dictionary, outpath, outname):
 	with open(os.path.join(outpath, outname), 'w', encoding="utf-8") as f_out:
 		jsObj = json.dumps(dictionary, indent=4)
@@ -31,7 +30,6 @@ def save_path_formatter(args, parser):
     keys_with_prefix['epoch_size'] = 'epoch_size'
     keys_with_prefix['batch_size'] = 'b'
     keys_with_prefix['lr'] = 'lr'
-
 
     for key, prefix in keys_with_prefix.items():
         value = args_dict[key]
@@ -120,80 +118,6 @@ def tensor2img(tensor):
     img = np.transpose(img, (0, 2, 3, 1))
     img = img*mean + mean
     return img
-
-def show_imgs(imgs):
-    '''
-    from utils import tensor2img as t2i
-    from utils import show_imgs as shi
-    tgi = t2i(tgt_img); rfi = t2i(ref_img); rwi = t2i(ref_img_warped); rci = t2i(rec_imgs[i])
-    tmp = diff_mask.squeeze().cpu().data.numpy() ; tmp = occ_mask.squeeze().cpu().data.numpy()
-    m=0; shi([tgi[m], rwi[m], rfi[m], rci[m], tmp[m]]); m=0; shi([tgi[m], rwi[m], rfi[m], tmp[m]])
-    import matplotlib.pyplot as plt
-    plt.subplot(311); plt.imshow(tgi[m]);plt.subplot(312); plt.imshow(rfi[m]); plt.subplot(313); plt.imshow(tgi[m]); plt.imshow(tmp[m],alpha=0.2,cmap='magma');plt.show()
-    '''
-    if type(imgs) not in [list]:
-        assert((len(imgs.shape)==3 and imgs.shape[2]==3) or len(imgs.shape)==2)
-        plt.imshow(imgs)
-        plt.show()
-    else:
-        num = len(imgs)
-        for i, img in enumerate(imgs):
-            assert((len(img.shape)==3) or len(img.shape)==2)
-            plt.subplot(num, 1, i+1)
-            plt.imshow(img)
-        plt.show()
-
-
-def align(model, data):
-    """Align two trajectories using the method of Horn (closed-form).
-
-    Input:
-    model -- first trajectory (3xn)
-    data -- second trajectory (3xn)
-
-    Output:
-    rot -- rotation matrix (3x3)
-    trans -- translation vector (3x1)
-    trans_error -- translational error per point (1xn)
-    """
-    numpy.set_printoptions(precision=3, suppress=True)
-    model_zerocentered = model - model.mean(1)
-    data_zerocentered = data - data.mean(1)
-
-    W = numpy.zeros((3, 3))
-    for column in range(model.shape[1]):
-        W += numpy.outer(model_zerocentered[:, column], data_zerocentered[:, column])
-    U, d, Vh = numpy.linalg.linalg.svd(W.transpose())
-    S = numpy.matrix(numpy.identity(3))
-    if (numpy.linalg.det(U) * numpy.linalg.det(Vh) < 0):
-        S[2, 2] = -1
-    rot = U * S * Vh
-
-    rotmodel = rot * model_zerocentered
-    dots = 0.0
-    norms = 0.0
-
-    for column in range(data_zerocentered.shape[1]):
-        dots += numpy.dot(data_zerocentered[:, column].transpose(), rotmodel[:, column])
-        normi = numpy.linalg.norm(model_zerocentered[:, column])
-        norms += normi * normi
-
-    s = float(dots / norms)
-
-    transGT = data.mean(1) - s * rot * model.mean(1)
-    trans = data.mean(1) - rot * model.mean(1)
-
-    model_alignedGT = s * rot * model + transGT
-    model_aligned = rot * model + trans
-
-    alignment_errorGT = model_alignedGT - data
-    alignment_error = model_aligned - data
-
-    trans_errorGT = numpy.sqrt(numpy.sum(numpy.multiply(alignment_errorGT, alignment_errorGT), 0)).A[0]
-    trans_error = numpy.sqrt(numpy.sum(numpy.multiply(alignment_error, alignment_error), 0)).A[0]
-
-    return rot, transGT, trans_errorGT, trans, trans_error, s, np.array(data.transpose()), np.array(model_alignedGT.transpose())
-
 
 def set_all_random_seed(seed: int):
     random.seed(seed)
