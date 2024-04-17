@@ -3,15 +3,14 @@ import torch.utils.data as data
 import sys
 sys.path.append("..")
 from imageio import imread
-from path import Path
 import numpy as np
 import random
 import time
-from scipy.spatial.transform import Rotation as R
 from skimage.transform import resize
 import glob
 import os
 import natsort
+import matplotlib.pyplot as plt
 
 def load_as_float(path):
     image = imread(path).astype(np.float32)[:, :, :3]
@@ -63,7 +62,15 @@ class DataSequence(data.Dataset):
 
         imgs = imread(img_path).astype(np.float32)
         depth = np.load(depth_path).astype(np.float32)
+
         depth = np.expand_dims(depth, axis=-1)
+        
+        depth = np.clip(depth, 0.1, 10.)
+
+        # Inverse depth
+        # Max => 1. / 0.1 = 10.
+        # MIN => 1. / 10. = 0.1.
+        depth = 1 / depth
 
         if self.transform is not None:
             imgs, depth = self.transform(imgs, depth) # Imu (5, 11, 6) # intrinsic (3, 3)
@@ -76,11 +83,12 @@ class DataSequence(data.Dataset):
 if __name__ == "__main__":
     start_time = time.time()
     D = DataSequence(
-        root='./nyu_depth_raw',
+        root='./data/nyu_depth',
         shuffle=False,
         image_width=832,
         image_height=256,
         scene='validation'
     )
-    img, depth = D[0]
-    print('time used {}'.format(time.time()-start_time))
+    for img, depth in D:
+        
+        print('time used {}'.format(time.time()-start_time))

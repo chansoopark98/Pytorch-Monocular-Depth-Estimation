@@ -14,7 +14,7 @@ from utils.utils import save_path_formatter, save_checkpoint, tensor2array, json
 from utils.metrics import compute_errors
 from utils import custom_transform
 from loss.depth_loss import berhu_loss
-from loss.dense_depth_loss import ssim as ssim_criterion
+from loss.dense_depth_loss import SSIM
 from loss.dense_depth_loss import depth_loss as gradient_criterion
 
 from dataset.NyuDataset import DataSequence as dataset
@@ -32,7 +32,7 @@ parser.add_argument('--dataset_root', type=str,
                     default='./data/', help='dataset root path')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--epoch-size', default=0, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
@@ -46,7 +46,7 @@ parser.add_argument('--beta', default=0.999, type=float, metavar='M',
                     help='beta parameters for adam')
 parser.add_argument('--weight-decay', '--wd', default=0.000001, type=float,
                     metavar='W', help='weight decay')
-parser.add_argument('--view-freq', default=200, type=int, dest='view_freq',
+parser.add_argument('--view-freq', default=100, type=int, dest='view_freq',
                     metavar='N', help='view frequency')
 parser.add_argument('-e', '--debug', dest='debug', action='store_true',
                     help='debug =======')
@@ -200,11 +200,16 @@ def main():
     logger.epoch_bar.finish()
 
 def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, logger, epoch):
+    
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter(precision=4)
+
     end = time.time()
     global n_iter, device
+
+    ssim = SSIM()
+    ssim.to(device)
 
     disp_net.train()
 
@@ -226,14 +231,13 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
             b, c, h, w = pred.shape
             resized_depth = nn.functional.interpolate(
                 depth, (h, w), mode='nearest')
-            l1_loss += nn.functional.l1_loss(pred, resized_depth)
-            ssim_loss += torch.clamp(
-                (1 - ssim_criterion(pred, resized_depth, 1000.0 / 100.0)) * 0.5,
-                min=0,
-                max=1,
-            )
-            gradient_loss += torch.mean(gradient_criterion(resized_depth, pred, device=device))
-            # berhu += berhu_loss(pred, resized_depth)
+
+            l1_loss = torch.abs(resized_depth - pred)
+            l1_loss = l1_loss.mean()
+
+            ssim_loss = ssim(pred, resized_depth).mean()
+            
+            gradient_loss += gradient_criterion(resized_depth, pred, device=device).mean()
 
         net_loss = (
                 (1.0 * ssim_loss)
@@ -263,9 +267,15 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
             train_writer.add_scalar('Train l1_loss', l1_loss.item(), n_iter)
             
             
-            normal_depth = preds[0][0]
+            inverse_depth = preds[0][0]
+            # Inverse Depth to Normal Depth
+            normal_depth = 1/ inverse_depth
 
-            train_writer.add_image(tag='Train Depth Output',
+            train_writer.add_image(tag='Train Depth Inverse Output',
+                                img_tensor=tensor2array(inverse_depth, max_value=None, colormap='magma'),
+                                global_step=n_iter)
+
+            train_writer.add_image(tag='Train Depth Normal Output',
                                 img_tensor=tensor2array(normal_depth, max_value=None, colormap='magma'),
                                 global_step=n_iter)
         
@@ -302,7 +312,6 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
     # Calc depth errors
     
     
-    
     for i, (image, depth) in enumerate(val_loader):
         image = image.to(device)
         depth = depth.to(device)
@@ -327,7 +336,11 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
         end = time.time()
         logger.valid_bar.update(i+1)
 
-        abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = compute_errors(gt=resized_depth, pred=pred)
+        # Compute Original Depth
+        normal_gt = 1. / resized_depth
+        normal_pred = 1. / pred
+
+        abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = compute_errors(gt=normal_gt, pred=normal_pred)
         
         abs_rel_list.append(abs_rel)
         sq_rel_list.append(sq_rel)
@@ -339,9 +352,14 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
 
         if i % 3 == 0:
             logger.valid_writer.write('valid: Time {} Loss {}'.format(batch_time, losses))
-            normal_depth = pred[0]
+            inverse_depth = pred[0]
+            normal_depth = 1. / pred[0]
 
-            train_writer.add_image(tag='Valid Depth Output',
+            train_writer.add_image(tag='Valid Depth Inverse Output',
+                                img_tensor=tensor2array(inverse_depth, max_value=None, colormap='magma'),
+                                global_step=n_iter)
+            
+            train_writer.add_image(tag='Valid Depth Normal Output',
                                 img_tensor=tensor2array(normal_depth, max_value=None, colormap='magma'),
                                 global_step=n_iter)
         
