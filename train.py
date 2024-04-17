@@ -27,7 +27,7 @@ parser.add_argument('--prefix', type=str,
                     default='test', help='dataset root path')
 parser.add_argument('--dataset_root', type=str, 
                     default='./data/', help='dataset root path')
-parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers')
 parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
