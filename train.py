@@ -27,13 +27,13 @@ parser.add_argument('--prefix', type=str,
                     default='test', help='dataset root path')
 parser.add_argument('--dataset_root', type=str, 
                     default='./data/', help='dataset root path')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                     help='number of data loading workers')
 parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--epoch-size', default=0, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
-parser.add_argument('-b', '--batch-size', default=16, type=int,
+parser.add_argument('-b', '--batch-size', default=8, type=int,
                     metavar='N', help='mini-batch size')
 parser.add_argument('--lr', '--learning-rate', default=0.0002, type=float,
                     metavar='LR', help='initial learning rate')
@@ -198,6 +198,7 @@ def main():
 
 def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, logger, epoch):
     
+    loss_weights = [1.0, 0.75, 0.5, 0.25]
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter(precision=4)
@@ -212,7 +213,7 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
 
     for i, (image, depth) in enumerate(train_loader):
         data_time.update(time.time() - end)
-        optimizer.zero_grad()
+        
         
         image = image.to(device)
         depth = depth.to(device)
@@ -223,29 +224,25 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
         l1_loss = 0
         gradient_loss = 0
 
-
-        for pred in preds:
-            b, c, h, w = pred.shape
+        for pred_idx, pred in enumerate(preds):
+            _, _, h, w = pred.shape
             resized_depth = nn.functional.interpolate(
                 depth, (h, w), mode='nearest')
 
-            l1_loss = torch.abs(resized_depth - pred)
-            l1_loss = l1_loss.mean()
-
-            ssim_loss = ssim(pred, resized_depth).mean()
-            
-            gradient_loss += gradient_criterion(resized_depth, pred, device=device).mean()
+            l1_loss += torch.abs(resized_depth - pred).mean() * loss_weights[pred_idx]
+            ssim_loss += ssim(pred, resized_depth).mean() * loss_weights[pred_idx]
+            gradient_loss += gradient_criterion(resized_depth, pred, device=device).mean() * loss_weights[pred_idx]
 
         net_loss = (
                 (1.0 * ssim_loss)
                 + (1.0 * gradient_loss)
                 + (0.1 * l1_loss)
             )
-        # loss = berhu + (l1 * 0.1)
 
         losses.update(net_loss.data.item(), args.batch_size)
         net_loss.backward()
         optimizer.step()
+        optimizer.zero_grad()
 
         n_iter += 1
         batch_time.update(time.time() - end)
