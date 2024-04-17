@@ -352,9 +352,6 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
             inverse_depth = pred[0]
             normal_depth = 1. / pred[0]
 
-            inverse_depth = np.clip(inverse_depth, 0.1, 10.)
-            normal_depth = np.clip(normal_depth, 0., 10.)
-
             train_writer.add_image(tag='Valid Depth Inverse Output',
                                 img_tensor=tensor2array(inverse_depth, max_value=None, colormap='magma'),
                                 global_step=n_iter)
