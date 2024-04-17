@@ -4,7 +4,6 @@ import argparse
 
 import torch.nn as nn
 import torch.backends
-import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
@@ -21,8 +20,6 @@ from dataset.NyuDataset import DataSequence as dataset
 import models
 
 import numpy as np
-from typing import NoReturn, Never
-import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Depth Training scripts',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
