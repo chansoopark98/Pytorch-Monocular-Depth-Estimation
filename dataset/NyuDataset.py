@@ -70,7 +70,6 @@ class DataSequence(data.Dataset):
         # Inverse depth
         # Max => 1. / 0.1 = 10.
         # MIN => 1. / 10. = 0.1.
-        depth = 1 / depth
 
         if self.transform is not None:
             imgs, depth = self.transform(imgs, depth) # Imu (5, 11, 6) # intrinsic (3, 3)
@@ -80,15 +79,15 @@ class DataSequence(data.Dataset):
     def __len__(self):
         return len(self.samples)
 
-if __name__ == "__main__":
-    start_time = time.time()
-    D = DataSequence(
-        root='./data/nyu_depth',
-        shuffle=False,
-        image_width=832,
-        image_height=256,
-        scene='validation'
-    )
-    for img, depth in D:
+# if __name__ == "__main__":
+#     start_time = time.time()
+#     D = DataSequence(
+#         root='./data/nyu_depth',
+#         shuffle=False,
+#         image_width=832,
+#         image_height=256,
+#         scene='validation'
+#     )
+    # for img, depth in D:
         
-        print('time used {}'.format(time.time()-start_time))
+    #     print('time used {}'.format(time.time()-start_time))

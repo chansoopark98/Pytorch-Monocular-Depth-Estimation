@@ -50,9 +50,12 @@ class ToTensorAndResize(object):
 class ToTensor(object):
     def __call__(self, images, depths):
         images = np.transpose(images, (2, 0, 1))
+        depths = 1. / depths
+        depths = np.clip(depths, a_min=0.1, a_max=10.)
         depths = np.transpose(depths, (2, 0, 1))
         
-        images = torch.from_numpy(images).float()/255
+
+        images = torch.from_numpy(images).float()/255.
         
         return images, depths
 
