@@ -25,36 +25,12 @@ class Normalize(object):
         for t, m, s in zip(images, self.mean, self.std):
             t.sub_(m).div_(s)
         return images, depths
-
-class ToTensorAndResize(object):
-    """Converts a list of numpy.ndarray (H x W x C) images to a list of torch.FloatTensor of shape (C x H x W) and resizes them to a specified size."""
-    def __init__(self, image_size):
-        # image_size should be a tuple (height, width)
-        self.image_size = image_size
-        self.resize_transform = Resize(self.image_size)  # torchvision Resize transform
-        self.to_pil_transform = ToPILImage()
-        self.to_tensor_transform = TorchToTensor()
-
-    def __call__(self, images, imus, intrinsics):
-        tensors = []
-        for im in images:
-            # Convert numpy array to PIL Image
-            im = self.to_pil_transform(im)
-            # Resize image
-            im = self.resize_transform(im)
-            # Convert PIL Image to Tensor and normalize the pixel values (0-1)
-            tensor = self.to_tensor_transform(im)
-            tensors.append(tensor)
-        return tensors, imus, intrinsics
-    
+   
 class ToTensor(object):
     def __call__(self, images, depths):
         images = np.transpose(images, (2, 0, 1))
-        depths = 1. / depths
-        depths = np.clip(depths, a_min=0.1, a_max=10.)
         depths = np.transpose(depths, (2, 0, 1))
         
-
         images = torch.from_numpy(images).float()/255.
         
         return images, depths
@@ -67,7 +43,6 @@ class RandomHorizontalFlip(object):
         if random.random() < 0.5:
             images = np.copy(np.fliplr(images))
             depths = np.copy(np.fliplr(depths))
-
         return images, depths
 
 
