@@ -131,8 +131,8 @@ def main():
         args.epoch_size = len(train_loader)
 
     # Load Depth Model
-    depth_net = models.dense_depth.DenseDepth(encoder_pretrained=True).to(device)
-    # depth_net = models.DepthDecoder(alpha=10., beta=0.1).to(device)
+    # depth_net = models.dense_depth.DenseDepth(encoder_pretrained=True).to(device)
+    depth_net = models.DepthDecoder(alpha=10., beta=0.1).to(device)
     # Set Model Data Parallel
     depth_net = torch.nn.DataParallel(depth_net)
 
@@ -221,13 +221,19 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
 
         preds = disp_net(image)
 
-        _, _, h, w = preds.shape
-        resized_depth = nn.functional.interpolate(
-            depth, (h, w), mode='nearest')
+        l1_loss = 0
+        ssim_loss = 0
+        gradient_loss = 0
 
-        l1_loss = torch.abs(resized_depth - preds).mean()
-        ssim_loss = ssim(preds, resized_depth).mean()
-        gradient_loss = gradient_criterion(resized_depth, preds, device=device).mean()
+
+        
+        for pred in preds:
+            _, _, h, w = pred.shape
+            resized_depth = nn.functional.interpolate(
+            depth, (h, w), mode='nearest')
+            l1_loss += torch.abs(resized_depth - pred).mean()
+            ssim_loss += ssim(pred, resized_depth).mean()
+            gradient_loss += gradient_criterion(resized_depth, pred, device=device).mean()
 
         net_loss = (
                 (1.0 * ssim_loss)

@@ -81,6 +81,7 @@ class DepthDecoder(nn.Module):
             x = self.convs["upconv_{}_{}".format(i,1)](x)
             if i in self.scales:
                 self.outputs.append(self.alpha * self.sigmoid(self.convs["dispconv_{}".format(i)](x)) + self.beta) 
+                # self.outputs.append(self.sigmoid(self.convs["dispconv_{}".format(i)](x))) 
 
         if self.training:
             return self.outputs[::-1]
