@@ -37,10 +37,6 @@ parser.add_argument('--diode_root', type=str,
                     default='/media/park-ubuntu/park_file/dataset/diode_depth/', help='dataset root path')
 parser.add_argument('--nyu_root', type=str, 
                     default='./data/', help='dataset root path')
-
-parser.add_argument('--prefix', type=str, 
-                    default='test', help='dataset root path')
-
 parser.add_argument('--prefix', type=str, 
                     default='test', help='dataset root path')
 parser.add_argument('--dataset_root', type=str, 
