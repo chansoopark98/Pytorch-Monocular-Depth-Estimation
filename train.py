@@ -112,7 +112,7 @@ def main():
 
     # Set train & validation Datasets
     if args.diode_root:
-        diode_train = diode_dataset(root=args.data, 
+        diode_train = diode_dataset(root=args.diode_root, 
                             seed=0, 
                             train=True, 
                             shuffle=True,
@@ -121,7 +121,7 @@ def main():
                             image_width=args.img_width,
                             image_height=args.img_height)
         
-        diode_valid = diode_dataset(root=args.data, 
+        diode_valid = diode_dataset(root=args.diode_root, 
                         seed=0, 
                         train=True, 
                         shuffle=False,
@@ -134,7 +134,7 @@ def main():
         diode_valid = None
 
     if args.nyu_root:
-        nyu_train = nyu_dataset(root=args.data, 
+        nyu_train = nyu_dataset(root=args.nyu_root, 
                             seed=0, 
                             train=True, 
                             shuffle=True,
@@ -143,7 +143,7 @@ def main():
                             image_width=args.img_width,
                             image_height=args.img_height)
         
-        nyu_valid = nyu_dataset(root=args.data, 
+        nyu_valid = nyu_dataset(root=args.nyu_root, 
                         seed=0, 
                         train=True, 
                         shuffle=False,
