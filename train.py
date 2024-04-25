@@ -25,9 +25,22 @@ from dataset.NyuDataset import get_inv_and_mask
 import models
 
 import numpy as np
+"""
+diode
+'/media/park-ubuntu/park_file/dataset/diode_depth/'
 
+'/data/data/diode_indoor'
+"""
 parser = argparse.ArgumentParser(description='Depth Training scripts',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--diode_root', type=str, 
+                    default='/media/park-ubuntu/park_file/dataset/diode_depth/', help='dataset root path')
+parser.add_argument('--nyu_root', type=str, 
+                    default='./data/', help='dataset root path')
+
+parser.add_argument('--prefix', type=str, 
+                    default='test', help='dataset root path')
+
 parser.add_argument('--prefix', type=str, 
                     default='test', help='dataset root path')
 parser.add_argument('--dataset_root', type=str, 
@@ -102,42 +115,48 @@ def main():
                                    std=[0.5, 0.5, 0.5])])
 
     # Set train & validation Datasets
+    if args.diode_root:
+        diode_train = diode_dataset(root=args.data, 
+                            seed=0, 
+                            train=True, 
+                            shuffle=True,
+                            transform=train_transform,
+                            scene='train',
+                            image_width=args.img_width,
+                            image_height=args.img_height)
+        
+        diode_valid = diode_dataset(root=args.data, 
+                        seed=0, 
+                        train=True, 
+                        shuffle=False,
+                        transform=val_transform,
+                        scene='val',
+                        image_width=args.img_width,
+                        image_height=args.img_height)
+    else:
+        diode_train = None
+        diode_valid = None
 
-    diode_train = diode_dataset(root=args.data, 
+    if args.nyu_root:
+        nyu_train = nyu_dataset(root=args.data, 
+                            seed=0, 
+                            train=True, 
+                            shuffle=True,
+                            transform=train_transform,
+                            scene='train',
+                            image_width=args.img_width,
+                            image_height=args.img_height)
+        
+        nyu_valid = nyu_dataset(root=args.data, 
                         seed=0, 
                         train=True, 
-                        shuffle=True,
-                        transform=train_transform,
-                        scene='train',
+                        shuffle=False,
+                        transform=val_transform,
+                        scene='validation',
                         image_width=args.img_width,
                         image_height=args.img_height)
-    
-    diode_valid = diode_dataset(root=args.data, 
-                      seed=0, 
-                      train=True, 
-                      shuffle=False,
-                      transform=val_transform,
-                      scene='val',
-                      image_width=args.img_width,
-                      image_height=args.img_height)
-    
-    nyu_train = nyu_dataset(root=args.data, 
-                        seed=0, 
-                        train=True, 
-                        shuffle=True,
-                        transform=train_transform,
-                        scene='train',
-                        image_width=args.img_width,
-                        image_height=args.img_height)
-    
-    nyu_valid = nyu_dataset(root=args.data, 
-                      seed=0, 
-                      train=True, 
-                      shuffle=False,
-                      transform=val_transform,
-                      scene='validation',
-                      image_width=args.img_width,
-                      image_height=args.img_height)
+        nyu_train = None
+        nyu_valid = None
    
     train_set = ConcatDataset([diode_train, nyu_train])
     val_set = ConcatDataset([diode_valid, nyu_valid])

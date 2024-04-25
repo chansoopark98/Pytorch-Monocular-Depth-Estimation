@@ -71,8 +71,8 @@ class DataSequence(data.Dataset):
                  image_height=480):
         np.random.seed(seed)
         random.seed(seed)
-        # self.root = root
-        self.root = '/media/park-ubuntu/park_file/dataset/diode_depth/'
+        self.root = root
+        # self.root = '/media/park-ubuntu/park_file/dataset/diode_depth/'
         self.transform = transform
         # self.train_path = './nyu_depth_raw/train/'
         # self.valid_path = './nyu_depth_raw/validation/'
