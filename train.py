@@ -36,7 +36,7 @@ parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers')
 parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('--epoch-size', default=2000, type=int, metavar='N',
+parser.add_argument('--epoch-size', default=1000, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
 parser.add_argument('-b', '--batch-size', default=8, type=int,
                     metavar='N', help='mini-batch size')
@@ -372,8 +372,8 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
         logger.valid_bar.update(i+1)
 
         # Compute Original Depth
-        normal_gt = np.clip(1. / depth, 0., 10.)
-        normal_pred = np.clip(1. / pred, 0., 10.)
+        normal_gt = torch.clip(1. / depth, 0., 10.)
+        normal_pred = torch.clip(1. / pred, 0., 10.)
 
         abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = compute_errors(gt=normal_gt, pred=normal_pred)
         
