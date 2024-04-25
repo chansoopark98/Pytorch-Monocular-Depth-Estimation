@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.backends
 import torch.optim
 import torch.utils.data
+from torch.utils.data import ConcatDataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import models.dense_depth
@@ -18,7 +19,8 @@ from loss.depth_loss import imgrad_loss, scale_invariant_loss
 from loss.dense_depth_loss import SSIM
 from loss.dense_depth_loss import depth_loss as gradient_criterion
 
-from dataset.NyuDataset import DataSequence as dataset
+from dataset.DiodeDataset import DataSequence as diode_dataset
+from dataset.NyuDataset import DataSequence as nyu_dataset
 from dataset.NyuDataset import get_inv_and_mask
 import models
 
@@ -38,7 +40,7 @@ parser.add_argument('--epoch-size', default=2000, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
 parser.add_argument('-b', '--batch-size', default=8, type=int,
                     metavar='N', help='mini-batch size')
-parser.add_argument('--lr', '--learning-rate', default=0.0002, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.0005, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum for sgd, alpha parameter for adam')
@@ -100,7 +102,8 @@ def main():
                                    std=[0.5, 0.5, 0.5])])
 
     # Set train & validation Datasets
-    train_set = dataset(root=args.data, 
+
+    diode_train = diode_dataset(root=args.data, 
                         seed=0, 
                         train=True, 
                         shuffle=True,
@@ -109,7 +112,25 @@ def main():
                         image_width=args.img_width,
                         image_height=args.img_height)
     
-    val_set = dataset(root=args.data, 
+    diode_valid = diode_dataset(root=args.data, 
+                      seed=0, 
+                      train=True, 
+                      shuffle=False,
+                      transform=val_transform,
+                      scene='val',
+                      image_width=args.img_width,
+                      image_height=args.img_height)
+    
+    nyu_train = nyu_dataset(root=args.data, 
+                        seed=0, 
+                        train=True, 
+                        shuffle=True,
+                        transform=train_transform,
+                        scene='train',
+                        image_width=args.img_width,
+                        image_height=args.img_height)
+    
+    nyu_valid = nyu_dataset(root=args.data, 
                       seed=0, 
                       train=True, 
                       shuffle=False,
@@ -118,6 +139,9 @@ def main():
                       image_width=args.img_width,
                       image_height=args.img_height)
    
+    train_set = ConcatDataset([diode_train, nyu_train])
+    val_set = ConcatDataset([diode_valid, nyu_valid])
+
     print(f'Train Dataset Samples : {len(train_set)}')
     print(f'Validation Dataset Samples : {len(val_set)}')
     
@@ -134,7 +158,7 @@ def main():
 
     # Load Depth Model
     # depth_net = models.dense_depth.DenseDepth(encoder_pretrained=True).to(device)
-    depth_net = models.DepthDecoder(alpha=10., beta=0.1).to(device)
+    depth_net = models.DepthDecoder(alpha=2.5, beta=0.1).to(device)
     # Set Model Data Parallel
     depth_net = torch.nn.DataParallel(depth_net)
 
@@ -150,7 +174,7 @@ def main():
 
     scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer=optimizer,
                                                       total_iters=args.epoch_size,
-                                                      power=0.9)
+                                                      power=0.99)
     # Terminal Logger
     logger = TermLogger(n_epochs=args.epochs,
                         train_size=min(len(train_loader),args.epoch_size),
@@ -215,11 +239,12 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
 
     disp_net.train()
 
-    for i, (image, depth) in enumerate(train_loader):
+    for i, (image, depth, mask) in enumerate(train_loader):
         data_time.update(time.time() - end)
         
         image = image.to(device)
         depth = depth.to(device)
+        mask = mask.to(device)
 
         preds = disp_net(image)
 
@@ -230,14 +255,17 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
 
         for pred in preds:
             _, _, h, w = pred.shape
-            resized_depth = nn.functional.interpolate(
+
+            resized_inv_depth = nn.functional.interpolate(
             depth, (h, w), mode='nearest')
-            resized_inv_depth, resized_mask = get_inv_and_mask(depth=resized_depth)
+
+            resized_mask = resized_inv_depth > 0
             # plt.imshow(resized_inv_depth.detach().cpu().numpy()[0, 0])
             # plt.show()
             l1_loss += torch.abs(resized_inv_depth - pred)[resized_mask].mean()
             ssim_loss += ssim(pred, resized_inv_depth)[resized_mask].mean()
             edge_loss += gradient_criterion(resized_inv_depth, pred, device=device)[resized_mask].mean()
+        
         
         net_loss = (
                 (0.85 * ssim_loss)
@@ -266,31 +294,29 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
             train_writer.add_scalar('Train ssim_loss', ssim_loss.item(), n_iter)
             train_writer.add_scalar('Train edge_loss', edge_loss.item(), n_iter)
 
-            inv_depth, _ = get_inv_and_mask(depth=depth)
-
             inv_depth_pred = preds[0][0, 0]
-            inv_depth_gt = inv_depth[0]
+            inv_depth_gt = depth[0]
 
             norm_depth_pred = 1. / inv_depth_pred
-            norm_depth_gt = 1. / inv_depth[0]
+            norm_depth_gt = 1. / depth[0]
 
             inv_max = inv_depth_gt.detach().cpu().max().numpy()
 
 
             train_writer.add_image(tag='Train Inverse Pred',
-                                img_tensor=tensor2array(inv_depth_pred, max_value=inv_max, colormap='magma'),
+                                img_tensor=tensor2array(inv_depth_pred, max_value=None, colormap='magma'),
                                 global_step=n_iter)
             
             train_writer.add_image(tag='Train Inverse GT',
-                                img_tensor=tensor2array(inv_depth_gt, max_value=inv_max, colormap='magma'),
+                                img_tensor=tensor2array(inv_depth_gt, max_value=None, colormap='magma'),
                                 global_step=n_iter)
             
             train_writer.add_image(tag='Train Normal Pred',
-                                img_tensor=tensor2array(norm_depth_pred, max_value=10., colormap='magma'),
+                                img_tensor=tensor2array(norm_depth_pred, max_value=None, colormap='magma'),
                                 global_step=n_iter)
 
             train_writer.add_image(tag='Train Normal GT',
-                                img_tensor=tensor2array(norm_depth_gt, max_value=10., colormap='magma'),
+                                img_tensor=tensor2array(norm_depth_gt, max_value=None, colormap='magma'),
                                 global_step=n_iter)
         
     return losses.avg[0]
@@ -320,17 +346,19 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
     # Calc depth errors
     
     
-    for i, (image, depth) in enumerate(val_loader):
+    for i, (image, depth, mask) in enumerate(val_loader):
         image = image.to(device)
         depth = depth.to(device)
+        mask = mask.to(device)
 
         pred = disp_net(image)
 
         _, _, h, w = pred.shape
-        resized_depth = nn.functional.interpolate(
+        resized_inv_depth = nn.functional.interpolate(
             depth, (h, w), mode='nearest')
-        
-        resized_inv_depth, resized_mask = get_inv_and_mask(depth=resized_depth)
+
+        resized_mask = resized_inv_depth > 0
+
         l1_loss = torch.abs(resized_inv_depth - pred)[resized_mask].mean()
         ssim_loss = ssim(pred, resized_inv_depth)[resized_mask].mean()
         edge_loss = gradient_criterion(resized_inv_depth, pred, device=device)[resized_mask].mean()
@@ -344,9 +372,8 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
         logger.valid_bar.update(i+1)
 
         # Compute Original Depth
-        normal_gt = resized_depth
-        normal_pred = 1. / pred
-        
+        normal_gt = np.clip(1. / depth, 0., 10.)
+        normal_pred = np.clip(1. / pred, 0., 10.)
 
         abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = compute_errors(gt=normal_gt, pred=normal_pred)
         
@@ -360,31 +387,29 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
 
         if i % 3 == 0:
             logger.valid_writer.write('valid: Time {} Loss {}'.format(batch_time, losses))
-            inv_depth, _ = get_inv_and_mask(depth=depth)
 
             inv_depth_pred = pred[0]
-            inv_depth_gt = inv_depth[0]
+            inv_depth_gt = depth[0]
 
             norm_depth_pred = 1. / inv_depth_pred
-            norm_depth_gt = 1. / inv_depth[0]
+            norm_depth_gt = 1. / depth[0]
 
             inv_max = inv_depth_gt.detach().cpu().max().numpy()
 
-
             train_writer.add_image(tag='Valid Inverse Pred',
-                                img_tensor=tensor2array(inv_depth_pred, max_value=inv_max, colormap='magma'),
+                                img_tensor=tensor2array(inv_depth_pred, max_value=None, colormap='magma'),
                                 global_step=n_iter)
             
             train_writer.add_image(tag='Valid Inverse GT',
-                                img_tensor=tensor2array(inv_depth_gt, max_value=inv_max, colormap='magma'),
+                                img_tensor=tensor2array(inv_depth_gt, max_value=None, colormap='magma'),
                                 global_step=n_iter)
             
             train_writer.add_image(tag='Valid Normal Pred',
-                                img_tensor=tensor2array(norm_depth_pred, max_value=10., colormap='magma'),
+                                img_tensor=tensor2array(norm_depth_pred, max_value=None, colormap='magma'),
                                 global_step=n_iter)
 
             train_writer.add_image(tag='Valid Normal GT',
-                                img_tensor=tensor2array(norm_depth_gt, max_value=10., colormap='magma'),
+                                img_tensor=tensor2array(norm_depth_gt, max_value=None, colormap='magma'),
                                 global_step=n_iter)
         
 
@@ -404,8 +429,6 @@ def validate(args, val_loader, disp_net, train_writer, logger, epoch=0):
     train_writer.add_scalar('Valid a2', a2_list, n_iter)
     train_writer.add_scalar('Valid a3', a3_list, n_iter)
             
-            
-
     logger.valid_bar.update(len(val_loader))
 
     return losses.avg[0], 0

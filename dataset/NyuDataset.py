@@ -12,6 +12,7 @@ import os
 import natsort
 import matplotlib.pyplot as plt
 import torch
+from utils.utils import vis_data
 
 def load_as_float(path):
     image = imread(path).astype(np.float32)[:, :, :3]
@@ -76,27 +77,34 @@ class DataSequence(data.Dataset):
         img_path, depth_path = self.samples[index]
 
         imgs = imread(img_path).astype(np.float32)
-        depth = np.load(depth_path).astype(np.float32)
+        raw_depth = np.load(depth_path).astype(np.float32)
 
-        depth = np.expand_dims(depth, axis=-1)
+        raw_depth = np.expand_dims(raw_depth, axis=-1)
+        mask = (raw_depth > 0) & (raw_depth < 10)
 
+        zero_depth_mask = raw_depth == 0
+        depth = np.zeros_like(raw_depth)  # 모든 값을 0으로 초기화
+        non_zero_mask = ~zero_depth_mask  # 깊이가 0이 아닌 위치
+        depth[non_zero_mask] = 1. / raw_depth[non_zero_mask]
+
+
+        # vis_data(img=imgs, depth=raw_depth, mask=depth)
         if self.transform is not None:
-            imgs, depth = self.transform(imgs, depth) # Imu (5, 11, 6) # intrinsic (3, 3)
+            imgs, depth, mask = self.transform(imgs, depth, mask) # Imu (5, 11, 6) # intrinsic (3, 3)
         
-        return imgs, depth
+        return imgs, depth, mask
 
     def __len__(self):
         return len(self.samples)
 
-# if __name__ == "__main__":
-#     start_time = time.time()
-#     D = DataSequence(
-#         root='./data/nyu_depth',
-#         shuffle=False,
-#         image_width=832,
-#         image_height=256,
-#         scene='validation'
-#     )
-    # for img, depth in D:
-        
-    #     print('time used {}'.format(time.time()-start_time))
+if __name__ == "__main__":
+    start_time = time.time()
+    D = DataSequence(
+        root='./data/nyu_depth',
+        shuffle=False,
+        image_width=832,
+        image_height=256,
+        scene='train'
+    )
+    for img, depth, mask in D:
+        print('time used {}'.format(time.time()-start_time))

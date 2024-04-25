@@ -22,7 +22,7 @@ except:
 
 class DepthDecoder(nn.Module):
     def __init__(self, num_layers=18, pretrained=True, scales=range(4), 
-                    num_output_channels=1, use_skips=True, alpha=10, beta=0.01):
+                    num_output_channels=1, use_skips=True, alpha=2.5, beta=0.01):
         super(DepthDecoder, self).__init__()
 
         self.encoder = ResnetEncoder(num_layers=num_layers, pretrained=pretrained, num_input_images=1)
@@ -80,8 +80,8 @@ class DepthDecoder(nn.Module):
             x = torch.cat(x, 1)
             x = self.convs["upconv_{}_{}".format(i,1)](x)
             if i in self.scales:
-                # self.outputs.append(self.alpha * self.sigmoid(self.convs["dispconv_{}".format(i)](x)) + self.beta) 
-                self.outputs.append(self.convs["dispconv_{}".format(i)](x))
+                self.outputs.append(self.alpha * self.sigmoid(self.convs["dispconv_{}".format(i)](x)) + self.beta) 
+                # self.outputs.append(self.convs["dispconv_{}".format(i)](x))
 
         if self.training:
             return self.outputs[::-1]

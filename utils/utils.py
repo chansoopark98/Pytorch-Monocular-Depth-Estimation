@@ -12,6 +12,28 @@ import json
 import os
 import random
 
+def vis_data(img, depth, mask):
+    # 그리드 생성: 1행 3열
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # 첫 번째 이미지 표시
+    axes[0].imshow(img/255.)
+    axes[0].set_title('img')
+    axes[0].axis('off')  # 축 레이블 끄기
+
+    # 두 번째 이미지 표시
+    axes[1].imshow(depth)
+    axes[1].set_title('depth')
+    axes[1].axis('off')
+
+    # 세 번째 이미지 표시
+    axes[2].imshow(mask)
+    axes[2].set_title('mask')
+    axes[2].axis('off')
+
+    # 전체 플롯 표시
+    plt.show()
+
 def json_out(dictionary, outpath, outname):
 	with open(os.path.join(outpath, outname), 'w', encoding="utf-8") as f_out:
 		jsObj = json.dumps(dictionary, indent=4)
