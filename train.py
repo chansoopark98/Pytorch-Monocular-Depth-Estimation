@@ -158,7 +158,7 @@ def main():
 
     # Load Depth Model
     # depth_net = models.dense_depth.DenseDepth(encoder_pretrained=True).to(device)
-    depth_net = models.DepthDecoder(alpha=2.5, beta=0.1).to(device)
+    depth_net = models.DepthDecoder(alpha=10., beta=0.1).to(device)
     # Set Model Data Parallel
     depth_net = torch.nn.DataParallel(depth_net)
 

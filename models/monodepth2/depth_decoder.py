@@ -18,8 +18,6 @@ except:
     from layers import *
     from resnet_encoder import ResnetEncoder
 
-
-
 class DepthDecoder(nn.Module):
     def __init__(self, num_layers=18, pretrained=True, scales=range(4), 
                     num_output_channels=1, use_skips=True, alpha=2.5, beta=0.01):
