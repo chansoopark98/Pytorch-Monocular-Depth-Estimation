@@ -111,6 +111,8 @@ def main():
                                    std=[0.5, 0.5, 0.5])])
 
     # Set train & validation Datasets
+    train_list = []
+    val_list = []
     if args.diode_root:
         diode_train = diode_dataset(root=args.diode_root, 
                             seed=0, 
@@ -129,9 +131,9 @@ def main():
                         scene='val',
                         image_width=args.img_width,
                         image_height=args.img_height)
-    else:
-        diode_train = None
-        diode_valid = None
+        
+        train_list.append(diode_train)
+        val_list.append(diode_valid)
 
     if args.nyu_root:
         nyu_train = nyu_dataset(root=args.nyu_root, 
@@ -151,12 +153,12 @@ def main():
                         scene='validation',
                         image_width=args.img_width,
                         image_height=args.img_height)
-    else:
-        nyu_train = None
-        nyu_valid = None
+        train_list.append(nyu_train)
+        val_list.append(nyu_valid)
+
    
-    train_set = ConcatDataset([diode_train, nyu_train])
-    val_set = ConcatDataset([diode_valid, nyu_valid])
+    train_set = ConcatDataset(train_list)
+    val_set = ConcatDataset(val_list)
 
     print(f'Train Dataset Samples : {len(train_set)}')
     print(f'Validation Dataset Samples : {len(val_set)}')
