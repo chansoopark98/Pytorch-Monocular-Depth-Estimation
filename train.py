@@ -151,6 +151,7 @@ def main():
                         scene='validation',
                         image_width=args.img_width,
                         image_height=args.img_height)
+    else:
         nyu_train = None
         nyu_valid = None
    
