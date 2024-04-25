@@ -18,7 +18,7 @@ from loss.InverseDepthSmoothnessLoss import disp_smooth_loss
 from loss.depth_loss import imgrad_loss, scale_invariant_loss
 from loss.dense_depth_loss import SSIM
 from loss.dense_depth_loss import depth_loss as gradient_criterion
-
+from loss.losses import Disparity_Loss, Silog_Loss
 from dataset.DiodeDataset import DataSequence as diode_dataset
 from dataset.NyuDataset import DataSequence as nyu_dataset
 from dataset.NyuDataset import get_inv_and_mask
@@ -235,7 +235,11 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
     global n_iter, device
 
     ssim = SSIM()
+    disp = Disparity_Loss()
     ssim.to(device)
+    disp.to(device)
+    silog = Silog_Loss()
+    silog.to(device)
 
     disp_net.train()
 
@@ -251,7 +255,8 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
         l1_loss = 0
         ssim_loss = 0
         edge_loss = 0
-
+        disp_loss = 0
+        silog_loss = 0
 
         for pred in preds:
             _, _, h, w = pred.shape
@@ -260,17 +265,16 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
             depth, (h, w), mode='nearest')
 
             resized_mask = resized_inv_depth > 0
-            # plt.imshow(resized_inv_depth.detach().cpu().numpy()[0, 0])
-            # plt.show()
-            l1_loss += torch.abs(resized_inv_depth - pred)[resized_mask].mean()
-            ssim_loss += ssim(pred, resized_inv_depth)[resized_mask].mean()
+
+            # l1_loss += torch.abs(resized_inv_depth - pred)[resized_mask].mean()
+            ssim_loss += ssim.forward(pred, resized_inv_depth)[resized_mask].mean()
             edge_loss += gradient_criterion(resized_inv_depth, pred, device=device)[resized_mask].mean()
-        
-        
+            silog_loss += silog.forward(resized_inv_depth, pred)
+            
         net_loss = (
                 (0.85 * ssim_loss)
                 + (0.9 * edge_loss)
-                + (0.1 * l1_loss)
+                + (0.1 * silog_loss)
             )
 
         optimizer.zero_grad()
@@ -290,9 +294,11 @@ def train(args, train_loader, disp_net, optimizer, train_writer: SummaryWriter, 
         # Train Writer
         if args.view_freq > 0 and n_iter % args.view_freq == 0:
             train_writer.add_scalar('Train total loss', net_loss.data.item(), n_iter)
-            train_writer.add_scalar('Train l1_loss', l1_loss.item(), n_iter)
+            # train_writer.add_scalar('Train l1_loss', l1_loss.item(), n_iter)
             train_writer.add_scalar('Train ssim_loss', ssim_loss.item(), n_iter)
             train_writer.add_scalar('Train edge_loss', edge_loss.item(), n_iter)
+            # train_writer.add_scalar('Train disp_loss', disp_loss.item(), n_iter)
+            train_writer.add_scalar('Train silog_loss', silog_loss.item(), n_iter)
 
             inv_depth_pred = preds[0][0, 0]
             inv_depth_gt = depth[0]
